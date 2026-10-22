@@ -40,6 +40,38 @@ def _find_ldplayer_adb():
     return None
 
 
+def _find_msi_adb():
+    """Look for MSI App Player's bundled adb.exe under common install locations."""
+    search_roots = []
+    for drive in "CDEF":
+        drive += ":"
+        if os.path.exists(drive):
+            search_roots.append(drive + os.sep)
+
+    for root in search_roots:
+        # Common paths
+        hits = glob.glob(os.path.join(root, "MSI App Player", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "MSI App Player", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "MSI", "MSI App Player", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "Program Files", "MSI", "MSI App Player", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "Program Files (x86)", "MSI", "MSI App Player", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "*", "MSI App Player", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "BlueStacks_msi5", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "BlueStacks_msi5", "*", "HD-Adb.exe"))
+        hits += glob.glob(os.path.join(root, "Program Files", "BlueStacks_msi5", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "Program Files", "BlueStacks_msi5", "*", "HD-Adb.exe"))
+        hits += glob.glob(os.path.join(root, "Program Files (x86)", "BlueStacks X_msi5", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "Users", "*", "AppData", "Local", "MSI App Player", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "Users", "*", "AppData", "Local", "HD-Player_msi5", "*", "adb.exe"))
+        hits += glob.glob(os.path.join(root, "Users", "*", "AppData", "Local", "HD-Player_msi5", "*", "HD-Adb.exe"))
+        # BlueStacks MSI variants (common for MSI Player installs)
+        hits += glob.glob(os.path.join(root, "Program Files", "BlueStacks_msi5", "HD-Adb.exe"))
+        hits += glob.glob(os.path.join(root, "Program Files", "BlueStacks_msi5", "*", "HD-Adb.exe"))
+        if hits:
+            return hits[0]
+    return None
+
+
 def find_adb():
     """Return a usable adb.exe path or None."""
     path = shutil.which("adb")
@@ -49,6 +81,9 @@ def find_adb():
     if path:
         return path
     path = _platform_tools_adb()
+    if path:
+        return path
+    path = _find_msi_adb()
     if path:
         return path
     return _find_ldplayer_adb()

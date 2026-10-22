@@ -33,13 +33,13 @@ class BotGUI:
         )
 
         ttk.Label(mainframe, text="Min Gold").grid(column=1, row=1, sticky=tk.W)
-        self.min_gold = tk.IntVar(value=200000)
+        self.min_gold = tk.IntVar(value=500000)
         ttk.Entry(mainframe, width=10, textvariable=self.min_gold).grid(
             column=2, row=1, sticky=(tk.W, tk.E)
         )
 
         ttk.Label(mainframe, text="Min Elixir").grid(column=1, row=2, sticky=tk.W)
-        self.min_elixir = tk.IntVar(value=200000)
+        self.min_elixir = tk.IntVar(value=500000)
         ttk.Entry(mainframe, width=10, textvariable=self.min_elixir).grid(
             column=2, row=2, sticky=(tk.W, tk.E)
         )
@@ -56,13 +56,13 @@ class BotGUI:
         )
 
         ttk.Label(mainframe, text="Total Gold").grid(column=1, row=5, sticky=tk.W)
-        self.goal_gold = tk.IntVar(value=5000000)
+        self.goal_gold = tk.IntVar(value=20000000)
         ttk.Entry(mainframe, width=10, textvariable=self.goal_gold).grid(
             column=2, row=5, sticky=(tk.W, tk.E)
         )
 
         ttk.Label(mainframe, text="Total Elixir").grid(column=1, row=6, sticky=tk.W)
-        self.goal_elixir = tk.IntVar(value=5000000)
+        self.goal_elixir = tk.IntVar(value=20000000)
         ttk.Entry(mainframe, width=10, textvariable=self.goal_elixir).grid(
             column=2, row=6, sticky=(tk.W, tk.E)
         )

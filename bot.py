@@ -8,6 +8,7 @@ import cv2
 
 from config import AppConfig
 from notify import Notifier
+from utils import user_path
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +266,7 @@ class CocBot:
                     (NOTIFY_IMAGE_MAX_WIDTH, max(1, int(h * scale))),
                     interpolation=cv2.INTER_AREA,
                 )
-            log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+            log_dir = user_path("logs")
             os.makedirs(log_dir, exist_ok=True)
             path = os.path.join(
                 log_dir, "error_" + time.strftime("%Y%m%d_%H%M%S") + ".jpg"

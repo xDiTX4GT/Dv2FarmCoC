@@ -11,8 +11,6 @@ __pycache__/
 *.so
 *.egg
 *.egg-info/
-dist/
-build/
 
 # Model files (large, keep locally)
 # Keep the models/ folder tracked, but ignore model artifacts outside it if needed.
@@ -20,10 +18,18 @@ build/
 # *.pth
 # models/
 
-# Build and packaging
+# EasyOCR weights bundled into the build (large, re-downloadable)
+assets/easyocr_data/model/*.pth
+
+# Build and packaging (EXE artifacts)
 build/
+build-*/
 dist/
-main.spec
+dist-*/
+*.spec
+*.spec.bak
+*.exe
+build.bat
 
 # Logs
 logs/

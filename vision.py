@@ -1,6 +1,9 @@
 import logging
+import os
 
 import cv2
+
+from utils import bundle_dir, configure_runtime_env
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +13,30 @@ logger = logging.getLogger(__name__)
 _OCR_ALLOWLIST = "0123456789.,KMBkmb"
 
 _SUFFIX_MULTIPLIERS = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000}
+
+
+def configure_easyocr_paths():
+    """
+    Point EasyOCR at the weights shipped inside the bundle.
+
+    EasyOCR downloads ``craft_mlt_25k.pth`` and ``english_g2.pth`` into
+    ``~/.EasyOCR/model`` the first time it runs, which needs internet access
+    and stalls for minutes. The packaged build carries the same two files, so
+    we set ``EASYOCR_MODULE_PATH`` before easyocr is imported (the path is
+    read at import time) and it picks them up instead of downloading.
+
+    Must be called *before* ``import easyocr``. Does nothing when the
+    weights are absent, which lets EasyOCR fall back to its normal download.
+    """
+    if os.environ.get("EASYOCR_MODULE_PATH"):
+        return
+
+    data_dir = os.path.join(bundle_dir(), "easyocr_data")
+    if not os.path.isdir(os.path.join(data_dir, "model")):
+        return
+
+    os.environ["EASYOCR_MODULE_PATH"] = data_dir
+    logger.debug(f"EasyOCR weights directory set to {data_dir}")
 
 
 def parse_loot_number(text: str) -> str:
@@ -75,7 +102,9 @@ class VisionManager:
         """
         if self.model is None:
             try:
+                configure_runtime_env()
                 from ultralytics import YOLO
+
                 self.model = YOLO(self.config.model_path)
             except Exception as e:
                 raise RuntimeError(f"Failed to load YOLO model from '{self.config.model_path}': {e}")
@@ -83,7 +112,10 @@ class VisionManager:
         if self.reader is None:
             try:
                 import torch
+
+                configure_easyocr_paths()
                 import easyocr
+
                 use_gpu = torch.cuda.is_available() if self.config.gpu is None else self.config.gpu
                 self.reader = easyocr.Reader(['en'], gpu=use_gpu)
             except Exception as e:
