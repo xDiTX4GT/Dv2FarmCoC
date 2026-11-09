@@ -97,7 +97,7 @@ def _dump_post_frame(self, frame, poll)   # diagnostic only; needs COC_POST_DEBU
 def _provider_counts(self, base) -> dict  # stores per class (gold/elixir/dark)
 def _count_providers_now(self) -> int | None  # one-shot, stop-ignoring
 def _attack_rows(self, base) -> list      # sweep rows (guest y) above surr
-def _sweep_rows(self, rows) -> int        # deploy one wave, return tap count
+def _sweep_rows(self, rows, budget) -> int   # deploy one wave (max budget taps), return tap count
 def _drain_summary(self, drains) -> str   # per-raid % + average line
 def _initiate_attack(self, base: dict) -> float | None   # %drained of the raid
 def _farm_loop(self, targets, goals)
@@ -125,17 +125,23 @@ only; off by default).
 the resource providers (gold/elixir/dark stores) seen at scan time via
 `_provider_counts`, then loops: `_attack_rows` (rows from all three classes, kept
 `_ATTACK_ROW_MARGIN` above the surr Y and merged within `_ATTACK_ROW_TOLERANCE`)
-→ tap `s_goblin` → `_sweep_rows` → sleep `waits.attack_wave_settle` →
-`_scan_base_layout()` again → if at least `attack.drain_ratio` (default 0.8) of
-the providers are gone, stop; else deploy another wave. The loop also stops after
-`attack.time_limit` seconds (default 90, measured from the first sweep), on a
-Stop between waves, or if a re-scan raises `ScanFailed` (then it surrenders
-gracefully). A Stop is honored before the first deploy and between waves but
-never mid-sweep, so a started sweep always completes; `_sweep_rows` logs
-`attack sweep done: …`. A failed deploy tap logs the coordinate and propagates
-(aborting the session). After the loop it sleeps `waits.attack_settle` (default
-5.0) via `_sleep` before the caller surrenders. `attack` overrides
-`DEFAULT_ATTACK` (module-level dict) like `recovery`.
+→ tap `s_goblin` → `_sweep_rows(rows, budget)` (stops mid-row once the
+per-attack budget `attack.troop_count`, default 25, is spent — one tap = one
+goblin, so this prevents the game's "select another unit" toast spam) → sleep
+`waits.attack_wave_settle` → if the budget is spent, stop deploying but keep
+the loop running (no further `s_goblin`/sweep) so the deployed goblins have
+time to drain the base; else `_scan_base_layout()` again → if at least
+`attack.drain_ratio` (default 0.8) of the providers are gone, stop; else
+deploy another wave. The loop also stops after `attack.time_limit` seconds
+(default 90, measured from the first sweep), on a Stop between waves, or if a
+re-scan raises `ScanFailed` (then it surrenders gracefully). A Stop is honored
+before the first deploy and between waves; mid-sweep the current wave ends as
+soon as its budget is spent.
+`_sweep_rows` logs `attack sweep done: …` and, when the budget is exhausted,
+`goblin budget exhausted; stopping deploy`. A failed deploy tap logs the
+coordinate and propagates (aborting the session). After the loop it sleeps
+`waits.attack_settle` (default 5.0) via `_sleep` before the caller surrenders.
+`attack` overrides `DEFAULT_ATTACK` (module-level dict) like `recovery`.
 
 Before that final settle, `_initiate_attack` takes one **pre-surrender reading**
 via `_count_providers_now` (single capture, no retries, **no stop check**, so a

@@ -112,11 +112,13 @@ clicking the new spots, no YOLO retraining.
 2. **Phase 2 — search & decide**: `_scan_base_layout()` (YOLO storehouses) +
    `_scan_treasures()` (YOLO boxes → OCR values). If resources meet targets →
    `_initiate_attack()` (multi-wave: taps `s_goblin` and sweeps the horizontal
-   rows of every gold/elixir/dark store above the calibrated `surr` Y, then
-   re-scans and repeats the wave until `attack.drain_ratio` of the providers seen
-   at scan time are gone, `attack.time_limit` seconds elapse, or a Stop is
-   requested between waves; a started sweep always runs to completion, then
-   pauses `waits.attack_settle`), then
+   rows of every gold/elixir/dark store above the calibrated `surr` Y, at most
+   `attack.troop_count` taps — one goblin each — then re-scans and repeats the
+   wave until `attack.drain_ratio` of the providers seen at scan time are gone,
+   the goblin budget is spent, `attack.time_limit` seconds elapse, or a Stop is
+   requested between waves; once the budget is spent no further sweep or
+   `s_goblin` tap happens and the bot only waits/re-scans for the deployed
+   goblins to drain the base, then pauses `waits.attack_settle`), then
    `_press_button("surr")` (opens the quit
    dialog), `_press_button("surr_conf")` (red confirm),
    `_scan_post_game()` (data-driven: polls every interval, keeps the max value

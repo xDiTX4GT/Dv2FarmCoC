@@ -13,7 +13,7 @@ class AppConfig:
     # are guest pixels; no window focus/visibility is required.
     adb_host: str = "127.0.0.1"
     adb_port: int = 5555
-    adb_path: str = ""  # empty = auto-detect (PATH / platform-tools / LDPlayer)
+    adb_path: str = "C:\Program Files\BlueStacks_nxt\HD-Adb.exe"  # empty = auto-detect (PATH / platform-tools / LDPlayer)
 
     # YOLO class labels used across the bot
     ATTACK_BTN_HOME: str = "attack_btn_home"

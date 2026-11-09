@@ -103,7 +103,11 @@ bot keeps running either way. The status line shows
 - Attacks in **waves**: each wave sweeps every gold/elixir/dark store row, then
   re-scans the base and compares the number of resource providers left with the
   number seen at scan time. It keeps deploying waves until at least
-  `attack.drain_ratio` (default **80%**) of the providers are gone, or
+  `attack.drain_ratio` (default **80%**) of the providers are gone, at most
+  `attack.troop_count` (default **25**) goblins have been deployed (one tap =
+  one goblin; when the budget is spent the bot stops deploying — no more
+  `s_goblin` taps or sweeps, so the game never spams "select another unit" —
+  but keeps waiting and re-scanning until the base is drained), or
   `attack.time_limit` seconds (default **90**, i.e. 1.5 min, counted from the
   first sweep) have passed — whichever comes first. Only then does it surrender
   and read the loot.
@@ -139,12 +143,15 @@ the first deploy and between waves, never mid-sweep.
 The wave loop itself is tuned under `attack` (not `waits`):
 
 ```json
-{ "attack": { "drain_ratio": 0.8, "time_limit": 90 } }
+{ "attack": { "drain_ratio": 0.8, "time_limit": 90, "troop_count": 25 } }
 ```
 
 `drain_ratio` is the fraction of providers that must be gone before it stops
-attacking (0.8 = 80%); `time_limit` is the hard cap in seconds (there is no wave
-cap, so the clock is the guaranteed stop).
+attacking (0.8 = 80%); `time_limit` is the hard cap in seconds; `troop_count`
+is the number of goblins available per attack (default 25) — each sweep tap
+deploys one goblin, so once the budget is spent the bot stops deploying (no
+more "select another unit" toast) and just waits for the goblins to drain the
+base until `drain_ratio` or `time_limit` ends the raid.
 
 The post-battle loot read is **data-driven**: instead of a fixed pause it
 re-reads the screen every `scan_post_interval` (default 0.3s) and keeps the

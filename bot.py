@@ -66,12 +66,15 @@ DEFAULT_RECOVERY = {
 
 # Multi-wave attack knobs (settings.json -> "attack"). The bot keeps re-deploying
 # goblin waves until at least `drain_ratio` of the resource providers counted at
-# scan time are gone, or `time_limit` seconds (measured from the first sweep)
-# have elapsed, whichever comes first. There is no wave cap on purpose: the
-# clock is the only guaranteed stop (the bot cannot read remaining troops).
+# scan time are gone, `time_limit` seconds (measured from the first sweep) have
+# elapsed, or the per-attack goblin budget (`troop_count` deploy taps) is spent,
+# whichever comes first. The tap budget is the guaranteed stop: each map tap
+# deploys one goblin, so once `troop_count` taps have been issued the army is
+# empty and further taps only make the game spam "select another unit".
 DEFAULT_ATTACK = {
     "drain_ratio": 0.8,
-    "time_limit": 30.0,
+    "time_limit": 90.0,
+    "troop_count": 100,
 }
 
 # Sweep geometry (preserved from the notebook): tap every `_SWEEP_STEP` px from
@@ -589,20 +592,26 @@ class CocBot:
                 rows.append(y)
         return rows
 
-    def _sweep_rows(self, rows: list) -> int:
+    def _sweep_rows(self, rows: list, budget: int) -> int:
         """
-        Deploy goblins across every row and return the total tap count. A failing
-        tap is logged with its coordinate and re-raised (aborting the session).
+        Deploy goblins across every row and return the total tap count, issuing
+        at most ``budget`` taps (one goblin each). Stops mid-row once the budget
+        is spent so the army is never over-deployed. A failing tap is logged with
+        its coordinate and re-raised (aborting the session).
         """
         started = time.time()
         total_taps = 0
         for k in rows:
+            if budget <= 0:
+                break
             row_taps = 0
             for a in range(
                 self.window.win_left,
                 self.window.win_width - _SWEEP_RIGHT_MARGIN,
                 _SWEEP_STEP,
             ):
+                if budget <= 0:
+                    break
                 logger.debug(f"tap sweep at ({a}, {k})")
                 try:
                     self.auto.click(a, k)
@@ -610,12 +619,15 @@ class CocBot:
                     logger.error(f"deploy tap failed at ({a}, {k}): {e}")
                     raise
                 row_taps += 1
+                budget -= 1
             total_taps += row_taps
             self._log(f"swept row y={k}: {row_taps} taps")
         self._log(
             f"attack sweep done: {len(rows)} row(s), {total_taps} taps "
             f"in {time.time() - started:.1f}s"
         )
+        if budget <= 0:
+            self._log("goblin budget exhausted; stopping deploy")
         return total_taps
 
     def _initiate_attack(self, base: dict):
@@ -628,15 +640,21 @@ class CocBot:
         baseline. Each wave deploys goblins across every provider row, then the
         base is re-scanned and the remaining provider count compared: if at least
         ``attack.drain_ratio`` (default 80%) are gone the loop stops, otherwise
-        another wave is deployed — until ``attack.time_limit`` seconds (default
-        90, measured from the first sweep) have passed, a Stop is requested, or a
-        re-scan fails. There is no wave cap: the clock is the only guaranteed
-        stop because the bot cannot read remaining troops.
+        another wave is deployed — until ``attack.troop_count`` (default 25)
+        deploy taps have been spent (each tap deploys one goblin, so this is the
+        army budget and prevents the game's "select another unit" toast spam).
+        Once the budget is spent the bot stops deploying but keeps waiting and
+        re-scanning (one ``attack_wave_settle`` pause per pass) so the deployed
+        goblins have time to drain the base; the loop then ends on
+        ``attack.time_limit`` seconds (default 90, measured from the first
+        sweep), a Stop request, a re-scan failure, or ``drain_ratio``. The tap
+        budget is reset on every call, i.e. it is per attack, not cumulative
+        across raids.
 
         A Stop request (F12) is honored before the first deploy and between
-        waves, but never mid-sweep, so a started sweep always completes and troops
-        are not left half-deployed. The final pause before the caller surrenders
-        is ``waits.attack_settle``.
+        waves; mid-sweep it stops as soon as the current wave's budget is spent,
+        so the army is never over-deployed. The final pause before the caller
+        surrenders is ``waits.attack_settle``.
         """
         if self._stop_event.is_set():
             self._log("attack skipped: stop requested before deploy")
@@ -644,6 +662,7 @@ class CocBot:
 
         drain_ratio = float(self.attack.get("drain_ratio", 0.8))
         time_limit = float(self.attack.get("time_limit", 90.0))
+        troop_count = max(1, int(self.attack.get("troop_count", 25)))
         wave_settle = self.waits.get("attack_wave_settle", 5.0)
 
         counts = self._provider_counts(base)
@@ -659,16 +678,29 @@ class CocBot:
         started = None
         wave = 0
         remaining = total
+        deployed = 0
+        exhausted_logged = False
         while True:
-            wave += 1
-            rows = self._attack_rows(current)
-            goblin = self._button_coords(self.config.S_GOBLIN)
-            self._log(f"wave {wave}: sweeping {len(rows)} row(s)")
-            self._log(f"tap s_goblin (deploy) at ({goblin[0]}, {goblin[1]})")
-            self.auto.click(goblin)
-            if started is None:
-                started = time.time()
-            self._sweep_rows(rows)
+            if deployed >= troop_count:
+                if not exhausted_logged:
+                    exhausted_logged = True
+                    self._log(
+                        f"goblin budget spent ({deployed}/{troop_count}); "
+                        "no more deploy, waiting for goblins to finish"
+                    )
+            else:
+                wave += 1
+                rows = self._attack_rows(current)
+                goblin = self._button_coords(self.config.S_GOBLIN)
+                self._log(
+                    f"wave {wave}: sweeping {len(rows)} row(s) "
+                    f"({deployed}/{troop_count} goblins used)"
+                )
+                self._log(f"tap s_goblin (deploy) at ({goblin[0]}, {goblin[1]})")
+                self.auto.click(goblin)
+                if started is None:
+                    started = time.time()
+                deployed += self._sweep_rows(rows, troop_count - deployed)
 
             self._sleep(wave_settle, why="attack wave settle")
 
